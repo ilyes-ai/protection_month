@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cyber Workshops</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* ---------------------------------------------------- */
+    /* I. Core Styling (Professional & Game-like) */
+    /* ---------------------------------------------------- */
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
+      min-height: 100vh;
+      color: #1f2937;
+    }
+    
+    .container { padding-top: 4rem; padding-bottom: 4rem; }
+
+    .card-hero {
+      border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
+      border: none;
+      background: #ffffff;
+    }
+
+    .workshop-card {
+      cursor: pointer;
+      transition: transform .25s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow .25s ease-out;
+      border-radius: 14px;
+      border: 1px solid #e5e7eb;
+      background: #fcfdfe;
+    }
+    .workshop-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 18px 45px rgba(29, 78, 216, 0.25);
+      border-color: #3b82f6;
+    }
+
+    .score-bubble {
+      background: #1d4ed8;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 50px;
+      font-weight: 800;
+      font-size: 1.1rem;
+      box-shadow: 0 4px 12px rgba(29, 78, 216, 0.4);
+    }
+    
+    .form-control, .form-select { border-radius: 10px; padding: 0.8rem 1.2rem; font-size: 1rem; }
+    
+    .btn { border-radius: 10px; font-weight: 700; padding: 0.8rem 1.8rem; transition: all .2s; }
+
+    /* Strength Meter */
+    #pwStrengthMeter, #builderStrengthMeter {
+        height: 10px;
+        border-radius: 5px;
+        transition: width 0.3s ease, background-color 0.3s ease;
+    }
+    .strength-weak { background-color: #dc3545; }
+    .strength-medium { background-color: #ffc107; }
+    .strength-strong { background-color: #198754; }
+
+    /* Custom Check/Cross Icons */
+    .status-icon {
+        width: 1.25rem;
+        height: 1.25rem;
+        line-height: 1.25rem;
+        text-align: center;
+        font-size: 1rem;
+        border-radius: 50%;
+        color: white;
+        margin-right: 5px;
+        display: inline-block;
+        transition: all 0.2s ease-out;
+    }
+    .status-check { background-color: #198754; }
+    .status-cross { background-color: #6c757d; }
+    
+    /* Leaderboard Styling */
+    .leaderboard-card {
+        background: #ffffff;
+        border-radius: 18px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e5e7eb;
+    }
+    .leaderboard-item {
+        padding: 12px 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .trophy-1::before { content: '🥇'; margin-right: 8px; }
+    .trophy-2::before { content: '🥈'; margin-right: 8px; }
+    .trophy-3::before { content: '🥉'; margin-right: 8px; }
+
+    /* Score Update Animation */
+    @keyframes pulse-score {
+        0% { transform: scale(1); background-color: rgba(25, 135, 84, 0.1); }
+        50% { transform: scale(1.03); background-color: rgba(25, 135, 84, 0.3); }
+        100% { transform: scale(1); background-color: transparent; }
+    }
+    .score-updated { animation: pulse-score 1s ease-out; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-8 mb-5 mb-lg-0"> 
+      <div class="card card-hero p-5"> 
+        <div class="d-flex align-items-center mb-4">
+          <div class="me-auto">
+            <h2 class="mb-1 fw-bold">🚀 Cyber Workshops</h2> 
+          </div>
+          <div id="scoreDisplay" class="score-bubble">Score: 0</div>
+        </div>
+
+        <div id="registerArea">
+          <div id="registerBox" class="p-4 border rounded-3 bg-light"> 
+            <h5 class="mb-3">Démarrez votre aventure !</h5>
+            <div class="input-group mb-3">
+              <input id="usernameInput" type="text" class="form-control form-control-lg" placeholder="Entrez un surnom (sans espaces)" />
+              <button id="startBtn" class="btn btn-primary btn-lg">Démarrer l'Atelier</button>
+            </div>
+            <div class="small text-muted">Votre surnom et votre score seront sauvegardés.</div>
+          </div>
+
+          <div id="dashboard" style="display:none">
+            <h4 class="mt-4 mb-3 fw-bold">Choisissez un Défi</h4>
+            <div class="row g-4"> 
+              <div class="col-12 col-md-4">
+                <div class="card workshop-card p-4" id="workshopPassword" data-bs-toggle="collapse" data-bs-target="#workshopArea" aria-expanded="false" aria-controls="workshopArea">
+                  <h5 class="card-title text-primary">🔐 Mot de passe sécurisé</h5>
+                  <div class="small text-muted">Safe Cracker et Password Builder. (100 pts max.)</div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="card workshop-card p-4" id="workshopAI" data-bs-toggle="collapse" data-bs-target="#workshopArea" aria-expanded="false" aria-controls="workshopArea">
+                  <h5 class="card-title text-danger">🤖 Artificial Intelligence</h5>
+                  <div class="small text-muted">Identifier les risques et appliquer les 7 règles. (100 pts max.)</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="collapse mt-4" id="workshopArea">
+                <div class="card p-4 border rounded-3 shadow-sm">
+                    <div id="workAreaContent">
+                        <h4 class="mb-3 text-primary">Bienvenue !</h4>
+                        <div class="text-muted">Choisissez un défi ci-dessus pour commencer.</div>
+                    </div>
+                </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-12 col-lg-4">
+        <div class="leaderboard-card p-4 sticky-top" style="top: 20px;">
+            <h4 class="mb-3 fw-bold text-center">🏆 Classement (Leaderboard)</h4>
+            <div id="leaderboardList" class="list-unstyled">
+                <div class="text-center text-muted small py-3">Chargement des utilisateurs...</div>
+            </div>
+        </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// ================== CONFIG: METTEZ À JOUR VOS INFORMATIONS SUPABASE ==================
+// Ces clés sont nécessaires pour sauvegarder les scores et le classement.
+const SUPABASE_URL = 'https://nrbyfuvmvxrdcyweibvy.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yYnlmdXZtdnhyZGN5d2VpYnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNjc5NDksImV4cCI6MjA3OTY0Mzk0OX0.TmdiPpNf07lKKCXBHlvMG1rajiUq2fXkWRCVXY4Z6P8';
+// ==================================================================================
+
+// Initialisation du client Supabase et état local
+const supabase = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let currentUser = null; 
+
+// --- Utilitaires (Toasts, DB, Score) ---
+
+function showToast(msg, type='danger'){
+  const toastId = 'appToast';
+  let toastElement = document.getElementById(toastId);
+  if (!toastElement) {
+    toastElement = document.createElement('div');
+    toastElement.id = toastId;
+    toastElement.className = 'alert position-fixed bottom-0 end-0 m-3 shadow-lg fade';
+    toastElement.style.zIndex = '1050';
+    toastElement.setAttribute('role', 'alert');
+    document.body.appendChild(toastElement);
+  }
+  toastElement.className = `alert alert-${type} position-fixed bottom-0 end-0 m-3 shadow-lg fade show`;
+  toastElement.textContent = msg;
+
+  setTimeout(() => {
+    toastElement.classList.remove('show');
+    toastElement.classList.add('fade');
+    setTimeout(() => toastElement.style.display = 'none', 500); 
+  }, 3500);
+}
+
+async function findUserByName(name){
+  const { data, error } = await supabase.from('users').select('*').eq('name', name).limit(1).maybeSingle();
+  if (error) console.error('findUserByName', error);
+  return data;
+}
+
+async function createUser(name){
+  const { data, error } = await supabase.from('users').insert({ name, score: 0 }).select().single();
+  if (error) throw error;
+  return data;
+}
+
+async function updateUserScoreByName(name, newScore){
+  const { error } = await supabase.from('users').update({ score: newScore }).eq('name', name);
+  if (error) console.error('updateUserScoreByName', error);
+  renderLeaderboard(await fetchLeaderboard());
+}
+
+async function incrementUserScore(name, delta){
+  const u = await findUserByName(name);
+  if (!u) return;
+  const oldScore = u.score || 0;
+  const newScore = oldScore + delta;
+  await updateUserScoreByName(name, newScore);
+  currentUser.score = newScore;
+  renderScore(true); 
+}
+
+async function fetchLeaderboard(){
+  const { data, error } = await supabase.from('users').select('name, score').order('score', { ascending: false }).limit(100);
+  if (error) { console.error('fetchLeaderboard', error); return []; }
+  return data;
+}
+
+function renderScore(animate=false){
+  const display = document.getElementById('scoreDisplay');
+  display.textContent = 'Score: ' + (currentUser?.score ?? 0);
+  if (animate) {
+      display.classList.add('score-updated');
+      setTimeout(() => display.classList.remove('score-updated'), 1000);
+  }
+}
+
+function renderLeaderboard(users=[]){
+    const listElement = document.getElementById('leaderboardList');
+    if (!users || users.length === 0) {
+        listElement.innerHTML = `<div class="text-center text-muted small py-3">Aucun utilisateur trouvé. Soyez le premier !</div>`;
+        return;
+    }
+    
+    listElement.innerHTML = users.map((user, index) => {
+        const rank = index + 1;
+        const trophyClass = rank <= 3 ? `trophy-${rank}` : '';
+        const highlightClass = user.name === currentUser?.name ? 'bg-light border-start border-3 border-primary' : '';
+
+        return `
+            <li class="d-flex justify-content-between align-items-center leaderboard-item ${highlightClass} px-3">
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-secondary me-2">${rank}</span>
+                    <span class="fw-bold ${trophyClass}">${user.name}</span>
+                </div>
+                <span class="badge bg-primary">${user.score} pts</span>
+            </li>
+        `;
+    }).join('');
+}
+
+async function startWithName(){
+  const name = document.getElementById('usernameInput').value.trim();
+  if (!name) return showToast('Veuillez entrer un surnom.');
+  if (name.includes(' ')) return showToast('Veuillez retirer les espaces du surnom.');
+
+  try{
+    let user = await findUserByName(name);
+    if (!user){
+      user = await createUser(name);
+    }
+    currentUser = user;
+    localStorage.setItem('pw_user', name);
+    document.getElementById('registerBox').style.display='none';
+    document.getElementById('dashboard').style.display='block';
+    renderScore();
+    renderLeaderboard(await fetchLeaderboard()); 
+  }catch(err){
+    console.error(err);
+    showToast('Erreur de base de données.', 'danger');
+  }
+}
+
+async function resumeIfStored(){
+  const name = localStorage.getItem('pw_user');
+  if (!name) { renderLeaderboard(await fetchLeaderboard()); return; }
+  try{
+    const user = await findUserByName(name);
+    if (user){
+      currentUser = user;
+      document.getElementById('registerBox').style.display='none';
+      document.getElementById('dashboard').style.display='block';
+      renderScore();
+      renderLeaderboard(await fetchLeaderboard());
+    }
+  }catch(e){console.error(e)}
+}
+
+function getAttempts(key){ return Number(localStorage.getItem(key) || 0); }
+function addAttempt(key){ const n = getAttempts(key)+1; localStorage.setItem(key,n); return n; }
+
+// ========================================================
+// ---------- 1. PASSWORD LAB (Safe Cracker + Builder) ----------
+// ========================================================
+
+function analyzePassword(pw, personalNames=[]){
+  let score = 0;
+  const requirements = [];
+  const lower = pw.toLowerCase();
+  
+  const symbolRegex = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/;
+  if (symbolRegex.test(pw)){ score += 5; requirements.push({ id: 'symbol', pts: 5, met: true }); }
+  else { requirements.push({ id: 'symbol', pts: 5, met: false }); }
+  
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)){ score += 5; requirements.push({ id: 'mixed', pts: 5, met: true }); }
+  else { requirements.push({ id: 'mixed', pts: 5, met: false }); }
+  
+  if (/[0-9]/.test(pw)){ score += 5; requirements.push({ id: 'number', pts: 5, met: true }); }
+  else { requirements.push({ id: 'number', pts: 5, met: false }); }
+  
+  if (pw.length > 14){ score += 10; requirements.push({ id: 'length-long', pts: 10, met: true }); }
+  else if (pw.length > 10){ score += 5; requirements.push({ id: 'length-medium', pts: 5, met: true }); }
+  else { requirements.push({ id: 'length-medium', pts: 5, met: false }); }
+  
+  const common = ['password','12345','qwerty','dragon','admin','letmein'];
+  const hasCommon = common.some(w=> lower.includes(w));
+  if (hasCommon){ score -= 10; requirements.push({ id: 'common', pts: -10, met: false }); }
+  else { requirements.push({ id: 'common', pts: -10, met: true }); }
+  
+  const personalFound = personalNames.some(n=> n && n.length>=2 && lower.includes(n.toLowerCase()));
+  if (personalFound){ score -= 10; requirements.push({ id: 'personal', pts: -10, met: false }); }
+  else { requirements.push({ id: 'personal', pts: -10, met: true }); }
+
+  const maxScore = 30; // Max possible points from complexity/length before deductions
+  let strengthPercent = Math.max(0, Math.min(100, (score / maxScore) * 100));
+  
+  let category = 'Faible';
+  if (score >= 20) category = 'Fort';
+  else if (score >= 10) category = 'Moyen';
+  
+  return { rawScore: score, requirements, category, strengthPercent };
+}
+
+function renderRequirements(containerId, res){
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    
+    const reqMap = {
+        'symbol': 'Symbole présent (!@#)',
+        'mixed': 'Majuscule et minuscule (aA)',
+        'number': 'Chiffre présent (123)',
+        'length-medium': 'Longueur > 10 caractères',
+        'common': 'Évite les mots communs',
+        'personal': `Évite le surnom ('${currentUser.name}')`
+    };
+
+    res.requirements.forEach(req => {
+        const label = reqMap[req.id];
+        if (!label) return;
+
+        const iconClass = req.met ? 'status-check' : 'status-cross';
+        const iconSymbol = req.met ? '✓' : '✖';
+        const textColor = (req.id === 'common' || req.id === 'personal') ? (req.met ? 'text-success' : 'text-danger') : '';
+
+        const col = document.createElement('div');
+        col.className = 'col-md-6';
+        col.innerHTML = `<p class="small mb-1"><span class="status-icon ${iconClass}">${iconSymbol}</span> <span class="${textColor}">${label}</span></p>`;
+        container.appendChild(col);
+    });
+}
+
+function updatePasswordStrength(inputElement, meterId, reqId, submitId){
+    const submitBtn = document.getElementById(submitId);
+    const meter = document.getElementById(meterId);
+    const val = inputElement.value;
+    
+    const res = analyzePassword(val, [currentUser.name]);
+    
+    meter.style.width = res.strengthPercent + '%';
+    meter.className = 'progress-bar';
+    if (res.category === 'Fort') meter.classList.add('strength-strong');
+    else if (res.category === 'Moyen') meter.classList.add('strength-medium');
+    else meter.classList.add('strength-weak');
+
+    renderRequirements(reqId, res);
+    
+    submitBtn.disabled = val.length === 0;
+}
+
+// Challenge 1: Safe Cracker
+function renderPasswordChallenge(container, attempts, maxAttempts){
+    container.innerHTML = `
+        <h5 class="mb-3 text-primary">🔐 1. Safe Cracker : Créer un mot de passe</h5>
+        <p class="text-muted">Créez un mot de passe pour tourner le cadran au **VERT ()**. Vous avez <strong id="pwAttempts">${maxAttempts - attempts}</strong> / ${maxAttempts} tentatives. (50 pts max.)</p>
+        
+        <div class="mb-3"><input id="pwInput" class="form-control form-control-lg" type="text" placeholder="Tapez votre mot de passe ici" /></div>
+        
+        <div class="mb-4">
+            <label class="form-label small fw-bold">Niveau de Force (Objectif : Fort)</label>
+            <div class="progress" style="height: 10px;"><div id="pwStrengthMeter" class="progress-bar strength-weak" role="progressbar" style="width: 0%;"></div></div>
+        </div>
+        
+        <div id="pwRequirements" class="row mb-4"></div>
+
+        <div class="d-flex flex-wrap gap-3 mb-3 align-items-center">
+            <button id="pwSubmit" class="btn btn-primary btn-lg" disabled>Déverrouiller le Coffre</button>
+        </div>
+        <div id="pwResult"></div>
+        <hr>
+        <button id="switchBuilderBtn" class="btn btn-outline-primary btn-sm">Passer au Défi 2 : Password Builder</button>
+    `;
+
+    const pwInput = document.getElementById('pwInput');
+    pwInput.addEventListener('input', () => updatePasswordStrength(pwInput, 'pwStrengthMeter', 'pwRequirements', 'pwSubmit'));
+    document.getElementById('pwSubmit').addEventListener('click', submitPasswordChallenge);
+    document.getElementById('switchBuilderBtn').addEventListener('click', () => openPasswordWorkshop('builder'));
+}
+
+async function submitPasswordChallenge(){
+    const pwInput = document.getElementById('pwInput');
+    const val = pwInput.value;
+    const used = getAttempts(currentUser.name + '_pw_cracker');
+    
+    if (used >= 3) return showToast('Plus de tentatives pour le Safe Cracker.', 'warning');
+    
+    const res = analyzePassword(val, [currentUser.name]);
+    let award = res.category === 'Fort' ? 50 : (res.category === 'Moyen' ? 30 : 15);
+    const deduction = res.requirements.filter(r => (r.id === 'common' || r.id === 'personal') && !r.met).length * 10;
+    award = Math.max(0, award - deduction);
+
+    addAttempt(currentUser.name + '_pw_cracker');
+    document.getElementById('pwAttempts').textContent = 3 - getAttempts(currentUser.name + '_pw_cracker');
+    
+    const resultDiv = document.getElementById('pwResult');
+
+    if (res.category === 'Fort') {
+        await incrementUserScore(currentUser.name, award);
+        resultDiv.innerHTML = `<div class='alert alert-success border-success'>🎉 **COFFRE DÉVERROUILLÉ !** Vous gagnez **${award}** points!</div>`;
+    } else {
+        resultDiv.innerHTML = `<div class='alert alert-danger border-danger'>🔒 **COFFRE VERROUILLÉ.** Force : **${res.category}**. Vous gagnez **${award}** points. Réessayez pour le max !</div>`;
+    }
+    showToast(`Safe Cracker: +${award} points!`, award > 0 ? 'success' : 'warning');
+    pwInput.value = '';
+    updatePasswordStrength(pwInput, 'pwStrengthMeter', 'pwRequirements', 'pwSubmit');
+}
+
+// Challenge 2: Password Builder
+function renderBuilderChallenge(container, attempts, maxAttempts){
+    const pool = ['football123','ahmed2009','dragon','letmein','qwerty'];
+    container.innerHTML = `
+        <h5 class="mb-3 text-primary">🛠️ 2. Password Builder : Améliorer les mots de passe</h5>
+        <p class="text-muted">Choisissez un mot de passe faible et améliorez-le pour atteindre le statut **Fort (Vert)**. Vous avez <strong id="builderAttempts">${maxAttempts - attempts}</strong> / ${maxAttempts} tentatives. (50 pts max.)</p>
+        
+        <div class="mb-3">
+            <label class="form-label fw-bold">Mot de passe faible à améliorer :</label>
+            <select id="weakSelect" class="form-select form-select-lg mb-3">${pool.map(p=>`<option value="${p}">${p}</option>`).join('')}</select>
+            <label class="form-label fw-bold">Votre mot de passe amélioré :</label>
+            <input id="builderInput" class="form-control form-control-lg" type="text" placeholder="Réécrivez-le pour le rendre fort et mémorable" />
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label small fw-bold">Niveau de Force (Objectif : Fort)</label>
+            <div class="progress" style="height: 10px;"><div id="builderStrengthMeter" class="progress-bar strength-weak" role="progressbar" style="width: 0%;"></div></div>
+        </div>
+        
+        <div id="builderRequirements" class="row mb-4"></div>
+
+        <div class="d-flex flex-wrap gap-3 mb-3 align-items-center">
+            <button id="builderSubmit" class="btn btn-primary btn-lg" disabled>Soumettre l'Amélioration</button>
+        </div>
+        <div id="builderResult"></div>
+        <hr>
+        <button id="switchCrackerBtn" class="btn btn-outline-primary btn-sm">Passer au Défi 1 : Safe Cracker</button>
+    `;
+
+    const builderInput = document.getElementById('builderInput');
+    builderInput.addEventListener('input', () => updatePasswordStrength(builderInput, 'builderStrengthMeter', 'builderRequirements', 'builderSubmit'));
+    document.getElementById('builderSubmit').addEventListener('click', submitBuilderChallenge);
+    document.getElementById('switchCrackerBtn').addEventListener('click', () => openPasswordWorkshop('cracker'));
+}
+
+async function submitBuilderChallenge(){
+    const builderInput = document.getElementById('builderInput');
+    const val = builderInput.value;
+    const used = getAttempts(currentUser.name + '_pw_builder');
+    
+    if (used >= 3) return showToast('Plus de tentatives pour le Password Builder.', 'warning');
+    
+    const res = analyzePassword(val, [currentUser.name]);
+    let award = res.category === 'Fort' ? 50 : (res.category === 'Moyen' ? 30 : 15);
+    const deduction = res.requirements.filter(r => (r.id === 'common' || r.id === 'personal') && !r.met).length * 10;
+    award = Math.max(0, award - deduction);
+
+    addAttempt(currentUser.name + '_pw_builder');
+    document.getElementById('builderAttempts').textContent = 3 - getAttempts(currentUser.name + '_pw_builder');
+    
+    const resultDiv = document.getElementById('builderResult');
+
+    if (res.category === 'Fort') {
+        await incrementUserScore(currentUser.name, award);
+        resultDiv.innerHTML = `<div class='alert alert-success border-success'>💡 **SUCCÈS !** Vous avez amélioré le mot de passe à **Fort** et gagné **${award}** points !</div>`;
+    } else {
+        resultDiv.innerHTML = `<div class='alert alert-danger border-danger'>🚧 **DOIT ÊTRE AMÉLIORÉ.** Force : **${res.category}**. Vous gagnez **${award}** points. Visez le vert !</div>`;
+    }
+    showToast(`Password Builder: +${award} points!`, award > 0 ? 'success' : 'warning');
+    builderInput.value = '';
+    updatePasswordStrength(builderInput, 'builderStrengthMeter', 'builderRequirements', 'builderSubmit');
+}
+
+function openPasswordWorkshop(challenge = 'cracker'){
+    const container = document.getElementById('workAreaContent');
+    const maxAttempts = 3;
+    
+    if (challenge === 'cracker') {
+        renderPasswordChallenge(container, getAttempts(currentUser.name + '_pw_cracker'), maxAttempts);
+    } else {
+        renderBuilderChallenge(container, getAttempts(currentUser.name + '_pw_builder'), maxAttempts);
+    }
+}
+
+
+// ========================================================
+// ---------- 2. AI SAFETY DEFENDER LAB (Risk + Safety) ----------
+// ========================================================
+
+
+const AI_SAFETY_SCENARIOS = [
+    { rule: "1. Ne jamais donner d’informations personnelles", text: "L'outil IA te demande ton numéro de carte d'identité pour 'vérifier ton profil'. Que fais-tu ?", options: { A: "J'entre le numéro.", B: "J'entre mon prénom, mais pas le numéro.", C: "Je n'entre aucune info sensible.", correct: 'C' }, points: 10 },
+    { rule: "2. Utiliser les plateformes avec “Mode privé”", text: "Tu brainstormes un projet secret. Pour éviter que tes idées n'entraînent le modèle, quel mode actives-tu ?", options: { A: "Mode Premium.", B: "Mode Sans historique (Private Mode).", C: "Mode Dark.", correct: 'B' }, points: 5 },
+    { rule: "3. Lire la politique de confidentialité", text: "Entre IA A ('Data deleted after session') et IA B ('We train on your data'), laquelle choisir ?", options: { A: "L'IA B, car elle est plus puissante.", B: "L'IA A, car les données sont supprimées.", C: "N'importe laquelle.", correct: 'B' }, points: 10 },
+    { rule: "4. Avoir des mots de passe forts", text: "Lequel est le plus fort ?", options: { A: "Ahmed2025", B: "a!Hmed_2025*F", C: "monmotdepasse", correct: 'B' }, points: 10 },
+    { rule: "5. Activer la double authentification (2FA)", text: "À quoi sert la Double Authentification (2FA) ?", options: { A: "À payer en deux fois.", B: "À se connecter plus rapidement.", C: "À ajouter une couche de sécurité essentielle.", correct: 'C' }, points: 5 },
+    { rule: "6. Éviter de connecter tous tes comptes à un seul email", text: "Tu t'inscris à un nouveau service d'IA. Quel email devrais-tu utiliser ?", options: { A: "L'email de l'école.", B: "L'email personnel (amis/famille).", C: "L'email dédié aux outils d'IA.", correct: 'C' }, points: 5 },
+    { rule: "7. Utiliser un VPN si nécessaire", text: "Pour protéger tes données sur un Wi-Fi public non sécurisé, quel outil utilises-tu ?", options: { A: "Bitwarden (gestionnaire de mots de passe).", B: "Un Antivirus.", C: "Un VPN (Réseau Privé Virtuel).", correct: 'C' }, points: 5 }
+];
+const AI_SAFETY_MAX_POINTS = 50; 
+
+
+function openAIRiskRadar(container){
+    const attempts = getAttempts(currentUser.name + '_ai_risk');
+    const isCompleted = attempts >= 1;
+    
+    let content = isCompleted ? 
+        `<h5 class="mb-3 text-danger">🤖 Défi 1/2 : Deepfakes & Biais</h5><div class="alert alert-warning">Défi terminé. Points max. déjà obtenus.</div>` :
+        `
+            <h5 class="mb-3 text-danger">🤖 Défi 1/2 : Deepfakes & Biais</h5>
+            <p class="text-muted">Identifie le type de risque IA (Deepfake, Biais, ou Job Risk) dans ces 3 situations. ${AI_RISK_MAX_POINTS} points max. (Tentatives: 1/1)</p>
+            <form id="aiQuizForm" class="mb-3">
+                ${AI_RISK_SCENARIOS.map((scenario, i) => `
+                    <div class="card p-4 mb-3 border-danger-subtle ai-scenario-card" data-index="${i}">
+                        <p class="fw-bold mb-3 text-danger">SCÉNARIO ${i + 1}</p>
+                        <p>${scenario.text}</p>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="q${i}" id="q${i}A" value="Deepfake" autocomplete="off" ${isCompleted ? 'disabled' : ''}>
+                            <label class="btn btn-outline-danger" for="q${i}A">Deepfake</label>
+                            <input type="radio" class="btn-check" name="q${i}" id="q${i}B" value="Bias" autocomplete="off" ${isCompleted ? 'disabled' : ''}>
+                            <label class="btn btn-outline-danger" for="q${i}B">Biais</label>
+                            <input type="radio" class="btn-check" name="q${i}" id="q${i}C" value="Job Risk" autocomplete="off" ${isCompleted ? 'disabled' : ''}>
+                            <label class="btn btn-outline-danger" for="q${i}C">Risque d'Emploi</label>
+                        </div>
+                        <div class="result-feedback mt-2" style="display:none;"></div>
+                    </div>
+                `).join('')}
+            </form>
+            <div class="d-flex gap-3 mb-3">
+                <button id="aiRiskSubmit" class="btn btn-danger btn-lg" ${isCompleted ? 'disabled' : ''}>Soumettre le Radar</button>
+            </div>
+            <div id="aiRiskResult"></div>
+        `;
+    container.innerHTML = content;
+    if (!isCompleted) document.getElementById('aiRiskSubmit').addEventListener('click', submitAIRiskChallenge);
+}
+
+async function submitAIRiskChallenge(e){
+    e.preventDefault();
+    const attemptsKey = currentUser.name + '_ai_risk';
+    if (getAttempts(attemptsKey) >= 1) return; // Déjà complété
+
+    const form = document.getElementById('aiQuizForm');
+    let awardedPoints = 0;
+    let correctCount = 0;
+    
+    AI_RISK_SCENARIOS.forEach((q, i) => {
+        const selected = form.querySelector(`input[name="q${i}"]:checked`)?.value;
+        const card = form.querySelector(`.ai-scenario-card[data-index="${i}"]`);
+        const feedbackDiv = card.querySelector('.result-feedback');
+        
+        feedbackDiv.style.display = 'block';
+        feedbackDiv.classList.remove('alert-success', 'alert-danger');
+
+        if (selected === q.correct) {
+            awardedPoints += q.points;
+            correctCount++;
+            feedbackDiv.classList.add('alert', 'alert-success');
+            feedbackDiv.innerHTML = `✅ **Correct !** (${q.correct}) : +${q.points} pts.`;
+        } else {
+            feedbackDiv.classList.add('alert', 'alert-danger');
+            feedbackDiv.innerHTML = `❌ **Incorrect.** La réponse est **${q.correct}**. Hint: ${q.hint}`;
+        }
+    });
+
+    const resultDiv = document.getElementById('aiRiskResult');
+    addAttempt(attemptsKey);
+
+    await incrementUserScore(currentUser.name, awardedPoints);
+    document.getElementById('aiRiskSubmit').disabled = true;
+    
+    if (correctCount === AI_RISK_SCENARIOS.length) {
+        resultDiv.innerHTML = `<div class='alert alert-success border-success'>✨ **Perfect Radar!** Tu as gagné les **${awardedPoints}** points!</div>`;
+        showToast('Challenge Deepfake/Biais terminé!', 'success');
+    } else {
+        resultDiv.innerHTML = `<div class='alert alert-warning border-warning'>⚠️ **Révision !** Tu as eu ${correctCount} sur ${AI_RISK_SCENARIOS.length} corrects. Tu gagnes ${awardedPoints} points.</div>`;
+    }
+}
+
+
+function openAISafetyScenarios(container){
+    const attempts = getAttempts(currentUser.name + '_ai_safety');
+    const isCompleted = attempts >= 1;
+
+    let content = isCompleted ? 
+        `<h5 class="mb-3 text-danger">🛡️ Défi 2/2 : 7 Règles de Sécurité IA</h5><div class="alert alert-warning">Défi terminé. Points max. déjà obtenus.</div>` :
+        `
+            <h5 class="mb-3 text-danger">🛡️ Défi 2/2 : 7 Règles de Sécurité IA</h5>
+            <p class="text-muted">Applique les **7 règles d'or de la sécurité IA** pour répondre à ces situations. **${AI_SAFETY_MAX_POINTS}** points max. (Tentatives: 1/1)</p>
+            <form id="aiSafetyForm" class="mb-3">
+                ${AI_SAFETY_SCENARIOS.map((scenario, i) => `
+                    <div class="card p-4 mb-3 border-danger-subtle ai-scenario-card" data-index="${i}">
+                        <p class="fw-bold mb-3 text-danger">RÈGLE ${i + 1} : ${scenario.rule}</p>
+                        <p>${scenario.text}</p>
+                        <div class="btn-group-vertical w-100" role="group">
+                            ${Object.keys(scenario.options).filter(k => k !== 'correct').map(k => `
+                                <input type="radio" class="btn-check" name="safety_q${i}" id="safety_q${i}${k}" value="${k}" autocomplete="off" ${isCompleted ? 'disabled' : ''}>
+                                <label class="btn btn-outline-danger text-start" for="safety_q${i}${k}">${k}) ${scenario.options[k]}</label>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            </form>
+            <div class="d-flex gap-3 mb-3">
+                <button id="aiSafetySubmit" class="btn btn-danger btn-lg" ${isCompleted ? 'disabled' : ''}>Soumettre les Décisions de Sécurité</button>
+            </div>
+            <div id="aiSafetyResult"></div>
+        `;
+    container.innerHTML = content;
+    if (!isCompleted) document.getElementById('aiSafetySubmit').addEventListener('click', submitAISafetyChallenge);
+}
+
+async function submitAISafetyChallenge(e){
+    e.preventDefault();
+    const attemptsKey = currentUser.name + '_ai_safety';
+    if (getAttempts(attemptsKey) >= 1) return; // Déjà complété
+    
+    const form = document.getElementById('aiSafetyForm');
+    let totalScore = 0;
+    let correctCount = 0;
+    
+    AI_SAFETY_SCENARIOS.forEach((q, i) => {
+        const selectedKey = form.querySelector(`input[name="safety_q${i}"]:checked`)?.value;
+        if (selectedKey === q.options.correct) {
+            totalScore += q.points;
+            correctCount++;
+        }
+    });
+
+    const resultDiv = document.getElementById('aiSafetyResult');
+    addAttempt(attemptsKey);
+    await incrementUserScore(currentUser.name, totalScore);
+    document.getElementById('aiSafetySubmit').disabled = true;
+    
+    if (correctCount === AI_SAFETY_SCENARIOS.length) {
+        resultDiv.innerHTML = `<div class='alert alert-success border-success'>🛡️ **Sécurité Max !** Tu as parfaitement appliqué les 7 règles et gagné **${totalScore}** points !</div>`;
+        showToast('Challenge Scénarios IA terminé!', 'success');
+        
+    } else {
+        resultDiv.innerHTML = `<div class='alert alert-info border-info'>⚠️ **Amélioration nécessaire !** Tu as eu ${correctCount} sur ${AI_SAFETY_SCENARIOS.length} corrects. Tu gagnes ${totalScore} points.</div>`;
+    }
+}
+
+
+function openAIWorkshop(challenge = 'risk_radar'){
+    const container = document.getElementById('workAreaContent');
+    
+    const navHTML = `
+        <ul class="nav nav-tabs nav-fill mb-4">
+            <li class="nav-item">
+                <button class="nav-link ${challenge === 'safety_scenarios' ? 'active' : ''}" id="tab-safety" onclick="openAIWorkshop('safety_scenarios')">
+                    Défaut 1 : 7 Règles de Sécurité
+                </button>
+            </li>
+        </ul>
+        <div id="aiSubChallengeContent"></div>
+    `;
+    container.innerHTML = navHTML;
+    const subContainer = document.getElementById('aiSubChallengeContent');
+
+    if (challenge === 'risk_radar') {
+        openAIRiskRadar(subContainer);
+    } else {
+        openAISafetyScenarios(subContainer);
+    }
+}
+
+
+// ========================================================
+// ---------- 3. DIGITAL FOOTPRINT ARCHITECT LAB (Unchanged) ----------
+// ========================================================
+const FOOTPRINT_CHALLENGE_POINTS = 50;
+const FOOTPRINT_ITEMS = [
+    { text: "Une publication montrant ton adresse exacte.", type: "Location Oversharing", action: "Delete", points: 10, key: 'loc' },
+    { text: "Un commentaire insultant un autre élève en ligne.", type: "Negative Reputation", action: "Archive", points: 15, key: 'reput' },
+    { text: "Tes paramètres de profil sont définis sur 'Public' (visible par tous).", type: "Weak Privacy", action: "Fix Setting", points: 25, key: 'privacy' },
+    { text: "Une photo de ta carte d'identité scolaire complète.", type: "ID Oversharing", action: "Delete", points: 10, key: 'id' },
+];
+
+function openFootprintWorkshop(){
+    const maxAttempts = 3;
+    const attempts = getAttempts(currentUser.name + '_footprint');
+    const isCompleted = attempts >= maxAttempts;
+    
+    document.getElementById('workAreaContent').innerHTML = `
+        <h5 class="mb-3 text-warning">👣 Privacy Cleaner (Empreinte Numérique)</h5>
+        <p class="text-muted">Nettoyez le profil de votre ami pour qu'il soit sécurisé. ${isCompleted ? 'Défi terminé.' : `Tentatives restantes : <strong id="fpAttempts">${maxAttempts - attempts}</strong> / ${maxAttempts}.`}</p>
+        <form id="footprintForm" class="mb-4">
+            ${FOOTPRINT_ITEMS.map((item, i) => `
+                <div class="card p-3 mb-3 border-warning-subtle footprint-item" data-key="${item.key}" data-index="${i}">
+                    <p class="fw-bold mb-2 text-warning">RISQUE ${i + 1}:</p>
+                    <p class="mb-3">${item.text}</p>
+                    <div class="btn-group" role="group">
+                        <input type="radio" class="btn-check" name="fp${i}" id="fp${i}A" value="Delete" autocomplete="off" ${isCompleted ? 'disabled' : ''}>
+                        <label class="btn btn-outline-warning" for="fp${i}A">Supprimer</label>
+
+                        <input type="radio" class="btn-check" name="fp${i}" id="fp${i}B" value="Archive" autocomplete="off" ${isCompleted ? 'disabled' : ''}>
+                        <label class="btn btn-outline-warning" for="fp${i}B">Archiver</label>
+
+                        <input type="radio" class="btn-check" name="fp${i}" id="fp${i}C" value="Fix Setting" autocomplete="off" ${isCompleted ? 'disabled' : ''}>
+                        <label class="btn btn-outline-warning" for="fp${i}C">Régler le Paramètre</label>
+                    </div>
+                </div>
+            `).join('')}
+        </form>
+        <div class="d-flex gap-3 mb-3">
+            <button id="fpSubmit" class="btn btn-warning btn-lg" ${isCompleted ? 'disabled' : ''}>Nettoyer le Profil</button>
+        </div>
+        <div id="fpResult"></div>
+    `;
+
+    if (!isCompleted) document.getElementById('fpSubmit').addEventListener('click', submitFootprintChallenge);
+}
+
+async function submitFootprintChallenge(e){
+    e.preventDefault();
+    const used = getAttempts(currentUser.name + '_footprint');
+    if (used >= 3) return showToast('Plus de tentatives pour le Privacy Cleaner.', 'warning');
+    
+    const form = document.getElementById('footprintForm');
+    let totalScore = 0;
+    let correctCount = 0;
+    
+    FOOTPRINT_ITEMS.forEach((item, i) => {
+        const selected = form.querySelector(`input[name="fp${i}"]:checked`)?.value;
+        if (selected === item.action) {
+            totalScore += item.points;
+            correctCount++;
+        }
+    });
+
+    addAttempt(currentUser.name + '_footprint');
+    document.getElementById('fpAttempts').textContent = 3 - getAttempts(currentUser.name + '_footprint');
+    
+    const resultDiv = document.getElementById('fpResult');
+    await incrementUserScore(currentUser.name, totalScore);
+
+    if (correctCount === FOOTPRINT_ITEMS.length) {
+        resultDiv.innerHTML = `<div class='alert alert-success border-success'>🌟 **Profil Nettoyé !** Vous avez gagné les **${FOOTPRINT_CHALLENGE_POINTS}** points.</div>`;
+        showToast('Points max. Privacy Earned!', 'success');
+        document.getElementById('fpSubmit').disabled = true;
+    } else {
+        resultDiv.innerHTML = `<div class='alert alert-info border-info'>Succès Partiel ! Vous avez identifié **${correctCount}** risques et gagné **${totalScore}** points. Réessayez !</div>`;
+        showToast('Points partiels attribués', 'info');
+    }
+}
+
+
+// --- Événements d'Initialisation ---
+document.getElementById('startBtn').addEventListener('click', startWithName);
+document.getElementById('workshopPassword').addEventListener('click', () => openPasswordWorkshop('cracker')); 
+document.getElementById('workshopAI').addEventListener('click', () => openAIWorkshop('risk_radar'));
+document.getElementById('workshopFootprint').addEventListener('click', openFootprintWorkshop);
+
+resumeIfStored();
+
+setInterval(async () => {
+    if (document.getElementById('dashboard').style.display === 'block') {
+        renderLeaderboard(await fetchLeaderboard());
+    }
+}, 30000); 
+</script>
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cyber Ninja Pro - Admin Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #2c3e50 0%, #1f2937 100%); /* Dark theme for Admin */
+      min-height: 100vh;
+      color: #ecf0f1;
+    }
+    .container { padding-top: 4rem; padding-bottom: 4rem; }
+    .card {
+      border-radius: 15px;
+      background: #34495e;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+      border: none;
+    }
+    .table { color: #ecf0f1; }
+    .table > :not(caption)>*>* { border-bottom-color: #2c3e50; }
+    .table-striped>tbody>tr:nth-of-type(odd)>* { background-color: #2c3e50; }
+    .btn { border-radius: 8px; font-weight: 600; }
+    .score-input-group { max-width: 400px; margin: 0 auto; }
+    .score-input-group .form-control { background-color: #4a637d; border: 1px solid #7f8c8d; color: white; }
+    .active-row { background-color: #1abc9c !important; color: #2c3e50 !important; font-weight: bold; cursor: pointer; }
+    .active-row .btn { background-color: #2c3e50; color: #1abc9c; border-color: #1abc9c; }
+  </style>
+</head>
+<body>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10">
+            <h1 class="text-center mb-5 fw-bold text-warning">🛠️ Admin Cyber Ninja Dashboard</h1>
+
+            <div class="card p-4 mb-5">
+                <h4 class="text-center text-light mb-3">Ajouter des Points à un Joueur</h4>
+                <div id="controlPanel" style="display: none;">
+                    <p class="text-center lead" id="selectedPlayerName">Sélectionnez un joueur dans le tableau.</p>
+                    
+                    <div class="score-input-group input-group mb-3">
+                        <select id="pointSelect" class="form-select">
+                            <option value="">Choisir les points...</option>
+                            <option value="15">15 points (Réponse OK)</option>
+                            <option value="30">30 points (Bonne réponse)</option>
+                            <option value="50">50 points (Excellente réponse)</option>
+                        </select>
+                        <button class="btn btn-warning" id="addScoreBtn" disabled>Ajouter le Score</button>
+                    </div>
+                </div>
+                <div id="loginPrompt" class="text-center">
+                    <input type="password" id="adminPassword" class="form-control mb-3" placeholder="Mot de passe Admin"/>
+                    <button class="btn btn-danger" id="loginAdminBtn">Connexion Admin</button>
+                </div>
+            </div>
+
+            <div class="card p-4">
+                <h4 class="mb-4 text-light">Classement des Joueurs (Mise à jour en temps réel)</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th scope="col">#</th>
+                                <th scope="col">Nom du Joueur</th>
+                                <th scope="col">Score Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboardTableBody">
+                            <tr><td colspan="3" class="text-center text-muted">Chargement des données...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ================== CONFIG: METTEZ À JOUR VOS INFORMATIONS SUPABASE ==================
+const SUPABASE_URL = 'https://nrbyfuvmvxrdcyweibvy.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yYnlmdXZtdnhyZGN5d2VpYnZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNjc5NDksImV4cCI6MjA3OTY0Mzk0OX0.TmdiPpNf07lKKCXBHlvMG1rajiUq2fXkWRCVXY4Z6P8';
+// Clé secrète pour l'administrateur (devrait être plus sécurisée en production!)
+const ADMIN_PASSWORD = 'ADMIN'; 
+// ==================================================================================
+
+const supabase = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let selectedPlayer = null; 
+let isAdminLoggedIn = false;
+
+// --- UTILITIES ---
+
+function showToast(msg, type='danger'){
+    const toastId = 'adminToast';
+    let toastElement = document.getElementById(toastId);
+    if (!toastElement) {
+        toastElement = document.createElement('div');
+        toastElement.id = toastId;
+        toastElement.className = 'alert position-fixed bottom-0 end-0 m-3 shadow-lg fade';
+        toastElement.style.zIndex = '1050';
+        toastElement.setAttribute('role', 'alert');
+        document.body.appendChild(toastElement);
+    }
+    // Utilisez un thème clair pour les notifications sur le fond sombre
+    const alertClass = type === 'success' ? 'alert-success' : (type === 'warning' ? 'alert-warning' : 'alert-danger');
+    toastElement.className = `alert ${alertClass} position-fixed bottom-0 end-0 m-3 shadow-lg fade show`;
+    toastElement.textContent = msg;
+
+    setTimeout(() => {
+        toastElement.classList.remove('show');
+        toastElement.classList.add('fade');
+        setTimeout(() => toastElement.style.display = 'none', 500); 
+    }, 3500);
+}
+
+// --- DB FUNCTIONS ---
+
+async function fetchLeaderboard(){
+    const { data, error } = await supabase.from('users').select('name, score').order('score', { ascending: false });
+    if (error) { console.error('fetchLeaderboard', error); return []; }
+    return data;
+}
+
+async function findUserByName(name){
+    const { data, error } = await supabase.from('users').select('*').eq('name', name).limit(1).maybeSingle();
+    if (error) console.error('findUserByName', error);
+    return data;
+}
+
+async function updateUserScoreByName(name, newScore){
+    const { error } = await supabase.from('users').update({ score: newScore }).eq('name', name);
+    if (error) console.error('updateUserScoreByName', error);
+    // Après la mise à jour, on rafraîchit le tableau
+    renderLeaderboard(await fetchLeaderboard());
+}
+
+async function incrementUserScore(name, delta){
+    const u = await findUserByName(name);
+    if (!u) {
+        showToast(`Erreur: Joueur ${name} non trouvé.`, 'danger');
+        return;
+    }
+    const oldScore = u.score || 0;
+    const newScore = oldScore + delta;
+    await updateUserScoreByName(name, newScore);
+}
+
+// --- RENDER FUNCTIONS ---
+
+function renderLeaderboard(users=[]){
+    const tbody = document.getElementById('leaderboardTableBody');
+    if (!users || users.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">Aucun joueur trouvé.</td></tr>`;
+        return;
+    }
+    
+    tbody.innerHTML = users.map((user, index) => {
+        const rank = index + 1;
+        // Gérer la classe active pour le joueur sélectionné
+        const activeClass = selectedPlayer && selectedPlayer.name === user.name ? 'active-row' : '';
+        
+        return `
+            <tr class="player-row ${activeClass}" data-name="${user.name}" data-score="${user.score}">
+                <td>${rank}</td>
+                <td>${user.name}</td>
+                <td>${user.score} pts</td>
+            </tr>
+        `;
+    }).join('');
+
+    // Attacher les gestionnaires d'événements aux nouvelles lignes
+    document.querySelectorAll('.player-row').forEach(row => {
+        row.addEventListener('click', handlePlayerSelection);
+    });
+}
+
+function handlePlayerSelection(event) {
+    if (!isAdminLoggedIn) return showToast("Veuillez vous connecter en tant qu'admin d'abord.", 'warning');
+
+    // Désélectionner toutes les lignes
+    document.querySelectorAll('.player-row').forEach(row => row.classList.remove('active-row'));
+
+    // Sélectionner la ligne cliquée
+    const row = event.currentTarget;
+    row.classList.add('active-row');
+    
+    selectedPlayer = {
+        name: row.dataset.name,
+        score: parseInt(row.dataset.score)
+    };
+
+    document.getElementById('selectedPlayerName').textContent = `Joueur sélectionné : ${selectedPlayer.name}`;
+    document.getElementById('addScoreBtn').disabled = false;
+    document.getElementById('pointSelect').value = ""; // Réinitialiser la sélection de points
+}
+
+// --- ADMIN CONTROL ---
+
+function handleAdminLogin() {
+    const password = document.getElementById('adminPassword').value;
+    if (password === ADMIN_PASSWORD) {
+        isAdminLoggedIn = true;
+        document.getElementById('loginPrompt').style.display = 'none';
+        document.getElementById('controlPanel').style.display = 'block';
+        showToast("Connexion Administrateur réussie !", 'success');
+        // Charger le classement après la connexion
+        initDashboard();
+    } else {
+        showToast("Mot de passe incorrect.", 'danger');
+    }
+}
+
+async function handleAddScore() {
+    if (!selectedPlayer || !isAdminLoggedIn) return showToast("Sélectionnez un joueur et assurez-vous d'être connecté.", 'warning');
+
+    const points = parseInt(document.getElementById('pointSelect').value);
+    if (isNaN(points) || (points !== 15 && points !== 30 && points !== 50)) {
+        return showToast("Veuillez choisir 15, 30 ou 50 points.", 'warning');
+    }
+
+    const confirmation = confirm(`Confirmer l'ajout de ${points} points à ${selectedPlayer.name}?`);
+
+    if (confirmation) {
+        await incrementUserScore(selectedPlayer.name, points);
+        showToast(`Succès: ${points} points ajoutés à ${selectedPlayer.name}.`, 'success');
+    }
+}
+
+// --- INITIALIZATION ---
+
+async function initDashboard() {
+    const initialUsers = await fetchLeaderboard();
+    renderLeaderboard(initialUsers);
+    
+    // Mise à jour automatique toutes les 30 secondes pour le suivi en temps réel
+    setInterval(async () => {
+        const users = await fetchLeaderboard();
+        renderLeaderboard(users);
+    }, 30000); 
+}
+
+// Attacher les événements
+document.getElementById('loginAdminBtn').addEventListener('click', handleAdminLogin);
+document.getElementById('addScoreBtn').addEventListener('click', handleAddScore);
+
+// Démarrer l'interface sans charger les données avant la connexion admin
+// Vous pouvez ajouter ici une vérification si l'admin est déjà stocké en session (si vous voulez)
+// Pour l'instant, on attend le login.
+</script>
+</body>
+</html>
